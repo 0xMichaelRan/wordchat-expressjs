@@ -1,6 +1,6 @@
 SELECT * FROM words;
 
-SELECT * FROM words WHERE word LIKE '%ph%';
+SELECT * FROM words WHERE word LIKE '%gen%';
 
 SELECT * FROM definition_history;
 
