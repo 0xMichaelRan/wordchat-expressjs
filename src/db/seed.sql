@@ -64,19 +64,65 @@ INSERT INTO definition_history (word_id, previous_definition) VALUES
 
 -- Add some random relations to the related_words table
 INSERT INTO related_words (word_id, related_word_id, correlation) VALUES
-(1, 2, 0.3),  -- ephemeral - serendipity
-(1, 3, 0.2),  -- ephemeral - ubiquitous
-(2, 4, 0.5),  -- serendipity - eloquent
-(3, 5, 0.4),  -- ubiquitous - resilient
-(4, 6, 0.6),  -- eloquent - mellifluous
-(5, 7, 0.3),  -- resilient - ethereal
-(6, 8, 0.4),  -- mellifluous - surreptitious
-(7, 9, 0.5),  -- ethereal - perspicacious
-(8, 10, 0.2), -- surreptitious - ineffable
-(9, 11, 0.3), -- perspicacious - nebulous
-(10, 12, 0.4),-- ineffable - labyrinthine
-(11, 13, 0.5),-- nebulous - mercurial
-(12, 14, 0.6),-- labyrinthine - pellucid
-(13, 15, 0.3),-- mercurial - quintessential
-(14, 16, 0.4),-- pellucid - recalcitrant
-(15, 17, 0.5);-- quintessential - sagacious
+(1, 2, 0.3), (2, 1, 0.3),  -- ephemeral - serendipity
+(1, 3, 0.2), (3, 1, 0.2),  -- ephemeral - ubiquitous
+(2, 4, 0.5), (4, 2, 0.5),  -- serendipity - eloquent
+(3, 5, 0.4), (5, 3, 0.4),  -- ubiquitous - resilient
+(4, 6, 0.6), (6, 4, 0.6),  -- eloquent - mellifluous
+(5, 7, 0.3), (7, 5, 0.3),  -- resilient - ethereal
+(6, 8, 0.4), (8, 6, 0.4),  -- mellifluous - surreptitious
+(7, 9, 0.5), (9, 7, 0.5),  -- ethereal - perspicacious
+(8, 10, 0.2), (10, 8, 0.2), -- surreptitious - ineffable
+(9, 11, 0.3), (11, 9, 0.3), -- perspicacious - nebulous
+(10, 12, 0.4), (12, 10, 0.4),-- ineffable - labyrinthine
+(11, 13, 0.5), (13, 11, 0.5),-- nebulous - mercurial
+(12, 14, 0.6), (14, 12, 0.6),-- labyrinthine - pellucid
+(13, 15, 0.3), (15, 13, 0.3),-- mercurial - quintessential
+(14, 16, 0.4), (16, 14, 0.4),-- pellucid - recalcitrant
+(15, 17, 0.5), (17, 15, 0.5),-- quintessential - sagacious
+(1, 18, 0.4), (18, 1, 0.4),  -- ephemeral - taciturn
+(2, 19, 0.3), (19, 2, 0.3),  -- serendipity - verdant
+(3, 20, 0.5), (20, 3, 0.5),  -- ubiquitous - whimsical
+(4, 21, 0.2), (21, 4, 0.2),  -- eloquent - xenial
+(5, 22, 0.4), (22, 5, 0.4),  -- resilient - yearning
+(6, 23, 0.3), (23, 6, 0.3),  -- mellifluous - zealous
+(7, 24, 0.5), (24, 7, 0.5),  -- ethereal - aberration
+(8, 25, 0.4), (25, 8, 0.4),  -- surreptitious - bucolic
+(9, 26, 0.3), (26, 9, 0.3),  -- perspicacious - cacophony
+(10, 27, 0.2), (27, 10, 0.2),-- ineffable - defenestration
+(11, 28, 0.4), (28, 11, 0.4),-- nebulous - effervescent
+(12, 29, 0.5), (29, 12, 0.5),-- labyrinthine - fastidious
+(13, 30, 0.3), (30, 13, 0.3),-- mercurial - garrulous
+(14, 31, 0.4), (31, 14, 0.4),-- pellucid - halcyon
+(15, 32, 0.5), (32, 15, 0.5),-- quintessential - idiosyncratic
+(16, 33, 0.3), (33, 16, 0.3),-- recalcitrant - juxtaposition
+(17, 34, 0.4), (34, 17, 0.4),-- sagacious - kaleidoscopic
+(18, 35, 0.5), (35, 18, 0.5),-- taciturn - loquacious
+(19, 36, 0.3), (36, 19, 0.3),-- verdant - maelstrom
+(20, 37, 0.4), (37, 20, 0.4),-- whimsical - nefarious
+(21, 38, 0.2), (38, 21, 0.2),-- xenial - obfuscate
+(22, 39, 0.5), (39, 22, 0.5),-- yearning - panacea
+(23, 40, 0.3), (40, 23, 0.3),-- zealous - quixotic
+(24, 41, 0.4), (41, 24, 0.4),-- aberration - redolent
+(25, 42, 0.5), (42, 25, 0.5),-- bucolic - solipsistic
+(26, 43, 0.3), (43, 26, 0.3),-- cacophony - trepidation
+(27, 44, 0.4), (44, 27, 0.4),-- defenestration - umbrage
+(28, 45, 0.5), (45, 28, 0.5),-- effervescent - vacillate
+(29, 46, 0.3), (46, 29, 0.3),-- fastidious - wanderlust
+(30, 47, 0.4), (47, 30, 0.4),-- garrulous - xerotic
+(31, 48, 0.2), (48, 31, 0.2),-- halcyon - yoke
+(32, 49, 0.5), (49, 32, 0.5) -- idiosyncratic - zephyr
+(1, 4, 0.3), (4, 1, 0.3),  -- ephemeral - eloquent
+(1, 5, 0.2), (5, 1, 0.2),  -- ephemeral - resilient
+(1, 6, 0.5), (6, 1, 0.5),  -- ephemeral - mellifluous
+(1, 7, 0.6), (7, 1, 0.6),  -- ephemeral - ethereal (strong correlation)
+(1, 8, 0.3), (8, 1, 0.3),  -- ephemeral - surreptitious
+(1, 9, 0.4), (9, 1, 0.4),  -- ephemeral - perspicacious
+(2, 3, 0.4), (3, 2, 0.4),  -- serendipity - ubiquitous
+(2, 5, 0.3), (5, 2, 0.3),  -- serendipity - resilient
+(2, 6, 0.2), (6, 2, 0.2),  -- serendipity - mellifluous
+(2, 7, 0.5), (7, 2, 0.5),  -- serendipity - ethereal
+(2, 8, 0.3), (8, 2, 0.3),  -- serendipity - surreptitious
+(2, 9, 0.4), (9, 2, 0.4)   -- serendipity - perspicacious
+
+
