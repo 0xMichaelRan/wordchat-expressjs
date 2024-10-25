@@ -74,7 +74,7 @@ router.get('/:id', async (req, res) => {
     }
 
     const related = await db.all(
-      `SELECT w.* FROM words w 
+      `SELECT w.id, w.word FROM words w 
        INNER JOIN related_words rw ON w.id = rw.related_word_id 
        WHERE rw.word_id = ?`,
       [id]
