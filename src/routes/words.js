@@ -24,25 +24,27 @@ router.get('/', [
     const limit = req.query.limit || 10;
     const sort = req.query.sort || 'latest';
 
-    let query = 'SELECT id, word, created_at FROM words';
+    let query = 'SELECT id, word, CAST(ROUND(RANDOM() * 1000, 0) AS REAL) / 1000 AS size FROM words';
     
     switch (sort) {
       case 'latest':
-        query += ' ORDER BY created_at DESC';
+        query = `
+          SELECT id, word, CAST(ROUND(RANDOM() * 1000, 0) AS REAL) / 1000 AS size 
+          FROM words 
+          ORDER BY created_at DESC
+        `;
         break;
       case 'hottest':
-        // For demo purposes, we'll consider "hot" as having recent definition changes
         query = `
-          SELECT DISTINCT w.id, w.word, w.created_at 
+          SELECT DISTINCT w.id, w.word, CAST(ROUND(RANDOM() * 1000, 0) AS REAL) / 1000 AS size 
           FROM words w 
           LEFT JOIN definition_history dh ON w.id = dh.word_id 
           ORDER BY dh.changed_at DESC NULLS LAST
         `;
         break;
       case 'popular':
-        // For demo purposes, we'll consider "popular" as having more related words
         query = `
-          SELECT w.id, w.word, w.created_at, COUNT(rw.related_word_id) as popularity 
+          SELECT w.id, w.word, CAST(ROUND(RANDOM() * 1000, 0) AS REAL) / 1000 AS size, COUNT(rw.related_word_id) as popularity 
           FROM words w 
           LEFT JOIN related_words rw ON w.id = rw.word_id 
           GROUP BY w.id 
