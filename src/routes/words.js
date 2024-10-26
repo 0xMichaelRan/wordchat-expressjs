@@ -73,6 +73,13 @@ router.get('/', [
   }
 });
 
+// Get latest words
+router.get('/latest', async (req, res) => {
+  const limit = parseInt(req.query.limit) || 1;
+  const words = await db.all('SELECT * FROM words ORDER BY created_at DESC LIMIT ?', [limit]);
+  res.json(words);
+});
+
 // Get single word
 router.get('/:id', async (req, res) => {
   try {
@@ -83,26 +90,18 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Word not found' });
     }
 
-    const related = await db.all(
-      `SELECT w.id, w.word FROM words w 
-       INNER JOIN related_words rw ON w.id = rw.related_word_id 
-       WHERE rw.word_id = ?`,
-      [id]
-    );
-
-    const history = await db.all(
-      'SELECT * FROM explain_history WHERE word_id = ? ORDER BY changed_at DESC',
-      [id]
-    );
-
-    res.json({
-      ...word,
-      related_words: related,
-      explain_history: history
-    });
+    // Return only the word details
+    res.json(word);
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
+});
+
+// Get explain history
+router.get('/:id/history', async (req, res) => {
+  const { id } = req.params;
+  const history = await db.all('SELECT * FROM explain_history WHERE word_id = ?', [id]);
+  res.json(history);
 });
 
 // Create word

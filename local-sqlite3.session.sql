@@ -1,4 +1,4 @@
-SELECT * FROM words;
+SELECT * FROM words ORDER BY id DESC;
 
 SELECT * FROM words WHERE word LIKE '%gen%';
 
