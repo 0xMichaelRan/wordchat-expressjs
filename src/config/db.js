@@ -52,15 +52,15 @@ const initSchema = `
 CREATE TABLE IF NOT EXISTS words (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   word TEXT UNIQUE NOT NULL,
-  definition TEXT NOT NULL,
+  explain TEXT NOT NULL,
   details TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS definition_history (
+CREATE TABLE IF NOT EXISTS explain_history (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   word_id INTEGER,
-  previous_definition TEXT NOT NULL,
+  previous_explain TEXT NOT NULL,
   changed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (word_id) REFERENCES words(id) ON DELETE CASCADE
 );
@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS related_words (
 );
 
 -- Insert sample data if the words table is empty
-INSERT OR IGNORE INTO words (word, definition, details) VALUES
+INSERT OR IGNORE INTO words (word, explain, details) VALUES
   ('ephemeral', 'Lasting for a very short time', 'From Greek "ephemeros" meaning lasting only one day'),
   ('serendipity', 'The occurrence of finding pleasant things by chance', 'Coined by Horace Walpole in 1754'),
   ('ubiquitous', 'Present, appearing, or found everywhere', 'From Latin "ubique" meaning everywhere'),

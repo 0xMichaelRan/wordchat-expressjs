@@ -1,0 +1,10 @@
+{
+    "sqltools.connections": [
+        {
+            "previewLimit": 50,
+            "driver": "SQLite",
+            "name": "local-sqlite3",
+            "database": "${workspaceFolder:express-wordchat}/data/dictionary.sqlite"
+        }
+    ]
+}

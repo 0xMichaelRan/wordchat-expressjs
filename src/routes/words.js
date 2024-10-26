@@ -6,7 +6,7 @@ const db = require('../config/db');
 // Validation middleware
 const validateWord = [
   body('word').isString().trim().notEmpty().isLength({ max: 100 }),
-  body('definition').isString().trim().notEmpty(),
+  body('explain').isString().trim().notEmpty(),
   body('details').optional().isString(),
 ];
 
@@ -44,7 +44,7 @@ router.get('/', [
           SELECT DISTINCT w.id, w.word, 
           '0.' || substr('000' || abs(random()) % 1000, -3, 3) AS size 
           FROM words w 
-          LEFT JOIN definition_history dh ON w.id = dh.word_id 
+          LEFT JOIN explain_history dh ON w.id = dh.word_id 
           ORDER BY dh.changed_at DESC NULLS LAST
         `;
         break;
@@ -91,14 +91,14 @@ router.get('/:id', async (req, res) => {
     );
 
     const history = await db.all(
-      'SELECT * FROM definition_history WHERE word_id = ? ORDER BY changed_at DESC',
+      'SELECT * FROM explain_history WHERE word_id = ? ORDER BY changed_at DESC',
       [id]
     );
 
     res.json({
       ...word,
       related_words: related,
-      definition_history: history
+      explain_history: history
     });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
@@ -113,10 +113,10 @@ router.post('/', validateWord, async (req, res) => {
   }
 
   try {
-    const { word, definition, details } = req.body;
+    const { word, explain, details } = req.body;
     const result = await db.run(
-      'INSERT INTO words (word, definition, details) VALUES (?, ?, ?)',
-      [word, definition, details]
+      'INSERT INTO words (word, explain, details) VALUES (?, ?, ?)',
+      [word, explain, details]
     );
     
     const newWord = await db.get('SELECT * FROM words WHERE id = ?', [result.lastID]);
@@ -139,26 +139,26 @@ router.put('/:id', validateWord, async (req, res) => {
 
   try {
     const { id } = req.params;
-    const { word, definition, details } = req.body;
+    const { word, explain, details } = req.body;
 
-    // Get current definition for history
+    // Get current explain for history
     const currentWord = await db.get('SELECT * FROM words WHERE id = ?', [id]);
     if (!currentWord) {
       return res.status(404).json({ error: 'Word not found' });
     }
 
-    // Store old definition in history if it changed
-    if (currentWord.definition !== definition) {
+    // Store old explain in history if it changed
+    if (currentWord.explain !== explain) {
       await db.run(
-        'INSERT INTO definition_history (word_id, previous_definition) VALUES (?, ?)',
-        [id, currentWord.definition]
+        'INSERT INTO explain_history (word_id, previous_explain) VALUES (?, ?)',
+        [id, currentWord.explain]
       );
     }
 
     // Update word
     await db.run(
-      'UPDATE words SET word = ?, definition = ?, details = ? WHERE id = ?',
-      [word, definition, details, id]
+      'UPDATE words SET word = ?, explain = ?, details = ? WHERE id = ?',
+      [word, explain, details, id]
     );
 
     const updatedWord = await db.get('SELECT * FROM words WHERE id = ?', [id]);
