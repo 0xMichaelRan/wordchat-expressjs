@@ -131,7 +131,21 @@ router.post('/', validateWord, async (req, res) => {
 });
 
 // Update word by ID
-router.put('/:id', validateWord, async (req, res) => {
+router.put('/:id', async (req, res) => {
+  // Perform conditional validation
+  const validationRules = [];
+  if (req.body.word !== undefined) {
+    validationRules.push(body('word').isString().trim().notEmpty().isLength({ max: 100 }));
+  }
+  if (req.body.explain !== undefined) {
+    validationRules.push(body('explain').isString().trim().notEmpty());
+  }
+  if (req.body.details !== undefined) {
+    validationRules.push(body('details').optional().isString());
+  }
+
+  await Promise.all(validationRules.map(validation => validation.run(req)));
+
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
@@ -141,14 +155,23 @@ router.put('/:id', validateWord, async (req, res) => {
     const { id } = req.params;
     const { word, explain, details } = req.body;
 
-    // Get current explain for history
+    console.log("word", word);
+    console.log("explain", explain);
+    console.log("details", details);
+
+    // Get current word data
     const currentWord = await db.get('SELECT * FROM words WHERE id = ?', [id]);
     if (!currentWord) {
       return res.status(404).json({ error: 'Word not found' });
     }
 
+    // Determine new values, falling back to current values if not provided
+    const newWord = word !== undefined ? word : currentWord.word;
+    const newExplain = explain !== undefined ? explain : currentWord.explain;
+    const newDetails = details !== undefined ? details : currentWord.details;
+
     // Store old explain in history if it changed
-    if (currentWord.explain !== explain) {
+    if (currentWord.explain !== newExplain) {
       await db.run(
         'INSERT INTO explain_history (word_id, previous_explain) VALUES (?, ?)',
         [id, currentWord.explain]
@@ -158,7 +181,7 @@ router.put('/:id', validateWord, async (req, res) => {
     // Update word
     await db.run(
       'UPDATE words SET word = ?, explain = ?, details = ? WHERE id = ?',
-      [word, explain, details, id]
+      [newWord, newExplain, newDetails, id]
     );
 
     const updatedWord = await db.get('SELECT * FROM words WHERE id = ?', [id]);
