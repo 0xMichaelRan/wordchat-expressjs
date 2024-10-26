@@ -12,7 +12,7 @@ const validateWord = [
 
 // Get all words with sorting and limiting
 router.get('/', [
-  query('limit').optional().isInt({ min: 1, max: 100 }).toInt(),
+  query('limit').optional().isInt({ min: 1, max: 20 }).toInt(),
   query('sort').optional().isIn(['hottest', 'latest', 'popular', 'random']),
 ], async (req, res) => {
   const errors = validationResult(req);
@@ -29,7 +29,7 @@ router.get('/', [
       '0.' || substr('000' || abs(random()) % 1000, -3, 3) AS size 
       FROM words
     `;
-    
+
     switch (sort) {
       case 'latest':
         query = `
@@ -78,7 +78,7 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const word = await db.get('SELECT * FROM words WHERE id = ?', [id]);
-    
+
     if (!word) {
       return res.status(404).json({ error: 'Word not found' });
     }
@@ -118,7 +118,7 @@ router.post('/', validateWord, async (req, res) => {
       'INSERT INTO words (word, explain, details) VALUES (?, ?, ?)',
       [word, explain, details]
     );
-    
+
     const newWord = await db.get('SELECT * FROM words WHERE id = ?', [result.lastID]);
     res.status(201).json(newWord);
   } catch (err) {
@@ -130,7 +130,7 @@ router.post('/', validateWord, async (req, res) => {
   }
 });
 
-// Update word
+// Update word by ID
 router.put('/:id', validateWord, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -177,11 +177,11 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const word = await db.get('SELECT * FROM words WHERE id = ?', [id]);
-    
+
     if (!word) {
       return res.status(404).json({ error: 'Word not found' });
     }
-    
+
     await db.run('DELETE FROM words WHERE id = ?', [id]);
     res.json({ message: 'Word deleted successfully' });
   } catch (err) {
@@ -190,7 +190,7 @@ router.delete('/:id', async (req, res) => {
 });
 
 // Add related word
-router.post('/:id/related/:relatedId', 
+router.post('/:id/related/:relatedId',
   [
     param('id').isInt(),
     param('relatedId').isInt(),
@@ -219,6 +219,6 @@ router.post('/:id/related/:relatedId',
         res.status(500).json({ error: 'Server error' });
       }
     }
-});
+  });
 
 module.exports = router;
