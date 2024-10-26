@@ -11,7 +11,16 @@ router.get('/:word_id', async (req, res) => {
       return res.status(400).json({ error: 'Invalid word ID' });
     }
 
-    const related = await db.all('SELECT * FROM related_words WHERE word_id = ?', [word_id]);
+    // Query to get related words along with their word names
+    const related = await db.all(
+      `SELECT rw.related_word_id, rw.correlation, w.word AS related_word
+       FROM related_words rw
+       JOIN words w ON rw.related_word_id = w.id
+       WHERE rw.word_id = ?
+       ORDER BY rw.correlation DESC`,
+      [word_id]
+    );
+
     res.json(related);
   } catch (err) {
     console.error(err);
