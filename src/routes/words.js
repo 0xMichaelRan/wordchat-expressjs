@@ -73,14 +73,20 @@ router.get('/', [
   }
 });
 
-// Get latest words
-router.get('/latest', async (req, res) => {
+// Get the most recently added word
+router.get('/most_recent', async (req, res) => {
   const limit = parseInt(req.query.limit) || 1;
   const words = await db.all('SELECT * FROM words ORDER BY created_at DESC LIMIT ?', [limit]);
   res.json(words);
 });
 
-// Get single word
+// Get a random word that has empty explain
+router.get('/random_empty_explain', async (req, res) => {
+  const word = await db.get('SELECT * FROM words WHERE explain IS \'\' ORDER BY RANDOM() LIMIT 1');
+  res.json(word);
+});
+
+// Get single word by ID
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -101,13 +107,13 @@ router.get('/:id', async (req, res) => {
 router.get('/:id/history', async (req, res) => {
   const { id } = req.params;
   const history = await db.all(
-    'SELECT * FROM explain_history WHERE word_id = ? ORDER BY changed_at DESC LIMIT 3',
+    'SELECT * FROM explain_history WHERE word_id = ? ORDER BY changed_at DESC LIMIT 4',
     [id]
   );
   res.json(history);
 });
 
-// Create word
+// Add a word
 router.post('/', validateWord, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -197,7 +203,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete word
+// Delete a word
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -214,7 +220,7 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// Add related word
+// Add word relationship TODO: bi-directional
 router.post('/:id/related/:relatedId',
   [
     param('id').isInt(),
