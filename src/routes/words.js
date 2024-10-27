@@ -8,6 +8,7 @@ const validateWord = [
   body('word').isString().trim().notEmpty().isLength({ max: 100 }),
   body('explain').isString().trim().notEmpty(),
   body('details').optional().isString(),
+  body('generated').isBoolean().notEmpty(),
 ];
 
 // Get all words with sorting and limiting
@@ -123,10 +124,10 @@ router.post('/', validateWord, async (req, res) => {
   }
 
   try {
-    const { word, explain, details } = req.body;
+    const { word, explain, details, generated } = req.body;
     const result = await db.run(
-      'INSERT INTO words (word, explain, details) VALUES (?, ?, ?)',
-      [word, explain, details]
+      'INSERT INTO words (word, explain, details, generated, pinecone_status) VALUES (?, ?, ?, ?, -1)',
+      [word, explain, details, generated]
     );
 
     const newWord = await db.get('SELECT * FROM words WHERE id = ?', [result.lastID]);
@@ -153,6 +154,9 @@ router.put('/:id', async (req, res) => {
   if (req.body.details !== undefined) {
     validationRules.push(body('details').optional().isString());
   }
+  if (req.body.generated !== undefined) {
+    validationRules.push(body('generated').isBoolean());
+  }
 
   await Promise.all(validationRules.map(validation => validation.run(req)));
 
@@ -163,11 +167,7 @@ router.put('/:id', async (req, res) => {
 
   try {
     const { id } = req.params;
-    const { word, explain, details } = req.body;
-
-    console.log("word", word);
-    console.log("explain", explain);
-    console.log("details", details);
+    const { word, explain, details, generated } = req.body;
 
     // Get current word data
     const currentWord = await db.get('SELECT * FROM words WHERE id = ?', [id]);
@@ -179,6 +179,12 @@ router.put('/:id', async (req, res) => {
     const newWord = word !== undefined ? word : currentWord.word;
     const newExplain = explain !== undefined ? explain : currentWord.explain;
     const newDetails = details !== undefined ? details : currentWord.details;
+    const newGenerated = generated !== undefined ? generated : currentWord.generated;
+
+    // Increment pinecone_status if explain changed
+    const newPineconeStatus = currentWord.explain !== newExplain 
+      ? Math.max(1, currentWord.pinecone_status + 1)
+      : currentWord.pinecone_status;
 
     // Store old explain in history if it changed
     if (currentWord.explain !== newExplain) {
@@ -190,8 +196,8 @@ router.put('/:id', async (req, res) => {
 
     // Update word
     await db.run(
-      'UPDATE words SET word = ?, explain = ?, details = ? WHERE id = ?',
-      [newWord, newExplain, newDetails, id]
+      'UPDATE words SET word = ?, explain = ?, details = ?, generated = ?, pinecone_status = ? WHERE id = ?',
+      [newWord, newExplain, newDetails, newGenerated, newPineconeStatus, id]
     );
 
     const updatedWord = await db.get('SELECT * FROM words WHERE id = ?', [id]);

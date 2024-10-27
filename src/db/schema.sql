@@ -9,7 +9,8 @@ CREATE TABLE if not exists words (
   word VARCHAR(80) UNIQUE NOT NULL,
   explain VARCHAR(188) NOT NULL,
   details TEXT,
-  pinecone_status INTEGER DEFAULT -1,
+  pinecone_status INTEGER DEFAULT -1, -- -1: no embedding, 0: just embedded, >0: outdated after edits
+  generated BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
