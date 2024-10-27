@@ -135,16 +135,17 @@ router.get('/tutorial', async (req, res) => {
   return res.json({ queryResponse: queryResponse });
 });
 
-router.get('/embed-words', async (req, res) => {
+router.post('/embed-new-words', async (req, res) => {
   try {
     // Find 5 random words that need embedding
+    // Note that I only update embedding for words that has been edited 3 or more times
     const words = await db.all(`
-      SELECT id, word, explain 
+      SELECT id, word, explain, ai_generated
       FROM words 
       WHERE explain != '' 
-      AND pinecone_status = -1 
+      AND (pinecone_status = -1 OR pinecone_status > 3)
       ORDER BY RANDOM() 
-      LIMIT 5
+      LIMIT 99
     `);
 
     if (words.length === 0) {
@@ -174,7 +175,14 @@ router.get('/embed-words', async (req, res) => {
 
     // Upsert to Pinecone
     const index = pc.index('tutorial');
-    await index.namespace('llm').upsert(vectors);
+    const vectorsWithSource = vectors.map((vector, i) => ({
+      ...vector,
+      metadata: {
+        ...vector.metadata,
+        source: words[i].ai_generated ? 'ai' : 'human'
+      }
+    }));
+    await index.namespace('llm').upsert(vectorsWithSource);
 
     // Update pinecone_status in database
     const wordIds = words.map(w => w.id);
