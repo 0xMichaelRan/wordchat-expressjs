@@ -107,7 +107,9 @@ router.get('/:id', async (req, res) => {
 router.get('/:id/history', async (req, res) => {
   const { id } = req.params;
   const history = await db.all(
-    'SELECT * FROM explain_history WHERE word_id = ? ORDER BY changed_at DESC LIMIT 4',
+    `SELECT * FROM explain_history 
+     WHERE word_id = ? AND previous_explain != '' 
+     ORDER BY changed_at DESC LIMIT 3`,
     [id]
   );
   res.json(history);
