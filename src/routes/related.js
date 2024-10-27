@@ -145,7 +145,7 @@ router.post('/embed-new-words', async (req, res) => {
       WHERE explain != '' 
       AND (pinecone_status = -1 OR pinecone_status > 3)
       ORDER BY RANDOM() 
-      LIMIT 99
+      LIMIT 5
     `);
 
     if (words.length === 0) {
