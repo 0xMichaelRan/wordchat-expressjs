@@ -8,7 +8,7 @@ const validateWord = [
   body('word').isString().trim().notEmpty().isLength({ max: 100 }),
   body('explain').isString().trim().notEmpty(),
   body('details').optional().isString(),
-  body('generated').isBoolean().notEmpty(),
+  body('ai_generated').isBoolean().notEmpty(),  // Changed from 'generated'
 ];
 
 // Get all words with sorting and limiting
@@ -124,10 +124,10 @@ router.post('/', validateWord, async (req, res) => {
   }
 
   try {
-    const { word, explain, details, generated } = req.body;
+    const { word, explain, details, ai_generated } = req.body;  // Changed from 'generated'
     const result = await db.run(
-      'INSERT INTO words (word, explain, details, generated, pinecone_status) VALUES (?, ?, ?, ?, -1)',
-      [word, explain, details, generated]
+      'INSERT INTO words (word, explain, details, ai_generated, pinecone_status) VALUES (?, ?, ?, ?, -1)',
+      [word, explain, details, ai_generated]
     );
 
     const newWord = await db.get('SELECT * FROM words WHERE id = ?', [result.lastID]);
@@ -154,8 +154,8 @@ router.put('/:id', async (req, res) => {
   if (req.body.details !== undefined) {
     validationRules.push(body('details').optional().isString());
   }
-  if (req.body.generated !== undefined) {
-    validationRules.push(body('generated').isBoolean());
+  if (req.body.ai_generated !== undefined) {  // Changed from 'generated'
+    validationRules.push(body('ai_generated').isBoolean());
   }
 
   await Promise.all(validationRules.map(validation => validation.run(req)));
@@ -167,7 +167,7 @@ router.put('/:id', async (req, res) => {
 
   try {
     const { id } = req.params;
-    const { word, explain, details, generated } = req.body;
+    const { word, explain, details, ai_generated } = req.body;  // Changed from 'generated'
 
     // Get current word data
     const currentWord = await db.get('SELECT * FROM words WHERE id = ?', [id]);
@@ -179,7 +179,7 @@ router.put('/:id', async (req, res) => {
     const newWord = word !== undefined ? word : currentWord.word;
     const newExplain = explain !== undefined ? explain : currentWord.explain;
     const newDetails = details !== undefined ? details : currentWord.details;
-    const newGenerated = generated !== undefined ? generated : currentWord.generated;
+    const newAiGenerated = ai_generated !== undefined ? ai_generated : currentWord.ai_generated;  // Changed from 'generated'
 
     // Increment pinecone_status if explain changed
     const newPineconeStatus = currentWord.explain !== newExplain 
@@ -196,8 +196,8 @@ router.put('/:id', async (req, res) => {
 
     // Update word
     await db.run(
-      'UPDATE words SET word = ?, explain = ?, details = ?, generated = ?, pinecone_status = ? WHERE id = ?',
-      [newWord, newExplain, newDetails, newGenerated, newPineconeStatus, id]
+      'UPDATE words SET word = ?, explain = ?, details = ?, ai_generated = ?, pinecone_status = ? WHERE id = ?',  // Changed from 'generated'
+      [newWord, newExplain, newDetails, newAiGenerated, newPineconeStatus, id]
     );
 
     const updatedWord = await db.get('SELECT * FROM words WHERE id = ?', [id]);
