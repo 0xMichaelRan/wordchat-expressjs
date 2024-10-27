@@ -9,6 +9,7 @@ CREATE TABLE if not exists words (
   word VARCHAR(80) UNIQUE NOT NULL,
   explain VARCHAR(188) NOT NULL,
   details TEXT,
+  pinecone_status INTEGER DEFAULT -1,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

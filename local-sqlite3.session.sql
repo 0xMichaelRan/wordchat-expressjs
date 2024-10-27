@@ -1,9 +1,9 @@
 SELECT * FROM words ORDER BY id DESC;
 
-SELECT * FROM words WHERE word LIKE '%gen%';
+SELECT * FROM words WHERE word LIKE 'language model %';
 
 SELECT * FROM explain_history;
 
 SELECT * FROM related_words;
 
-SELECT * FROM words WHERE explain IS '' ORDER BY RANDOM() LIMIT 1
+SELECT count(*) FROM words WHERE explain != '' AND pinecone_status = -1;

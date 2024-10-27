@@ -113,7 +113,7 @@ router.get('/tutorial', async (req, res) => {
 
   // 2.1 create a query vector
   const query = [
-    'Tell me about the tech company known as Apple.',
+    'microsoft and windows xp',
   ];
 
   const embedding = await pc.inference.embed(
@@ -133,6 +133,66 @@ router.get('/tutorial', async (req, res) => {
   console.log(queryResponse);
 
   return res.json({ queryResponse: queryResponse });
+});
+
+router.get('/embed-words', async (req, res) => {
+  try {
+    // Find 5 random words that need embedding
+    const words = await db.all(`
+      SELECT id, word, explain 
+      FROM words 
+      WHERE explain != '' 
+      AND pinecone_status = -1 
+      ORDER BY RANDOM() 
+      LIMIT 5
+    `);
+
+    if (words.length === 0) {
+      return res.json({ message: 'No words found requiring embedding' });
+    }
+
+    // Prepare data for embedding
+    const data = words.map(w => ({
+      id: `word_${w.id}`,
+      text: `${w.word}: ${w.explain}`
+    }));
+
+    // Calculate embeddings
+    const model = 'multilingual-e5-large';
+    const embeddings = await pc.inference.embed(
+      model,
+      data.map(d => d.text),
+      { inputType: 'passage', truncate: 'END' }
+    );
+
+    // Prepare vectors for Pinecone
+    const vectors = data.map((d, i) => ({
+      id: d.id,
+      values: embeddings[i].values,
+      metadata: { text: d.text }
+    }));
+
+    // Upsert to Pinecone
+    const index = pc.index('tutorial');
+    await index.namespace('llm').upsert(vectors);
+
+    // Update pinecone_status in database
+    const wordIds = words.map(w => w.id);
+    await db.run(`
+      UPDATE words 
+      SET pinecone_status = 0 
+      WHERE id IN (${wordIds.join(',')})
+    `);
+
+    return res.json({
+      words: data,
+      embeddings: embeddings
+    });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Server error', details: err.message });
+  }
 });
 
 router.get('/:word_id', async (req, res) => {
