@@ -7,6 +7,24 @@ const pc = new Pinecone({
   apiKey: process.env.PINECONE_API_KEY
 });
 
+async function getEmbedding(text) {
+  const model = 'multilingual-e5-large';
+  const embedding = await pc.inference.embed(
+    model,
+    [text],
+    { inputType: 'query' }
+  );
+  return embedding[0].values;
+}
+
+
+
+
+
+
+
+
+
 router.get('/connect', async (req, res) => {
   const indexName = 'quickstart';
 
@@ -56,10 +74,6 @@ router.get('/connect', async (req, res) => {
   });
 
   console.log(queryResponse);
-
-
-
-
 
   return res.json({ queryResponse: queryResponse });
 });
@@ -135,6 +149,13 @@ router.get('/tutorial', async (req, res) => {
   return res.json({ queryResponse: queryResponse });
 });
 
+
+
+
+
+
+// This endpoint is meant to be deprecated in future
+// Because only new words with AI-generated explain will have pinecone_status = -1
 router.post('/embed-new-words', async (req, res) => {
   try {
     // Find 5 random words that need embedding
@@ -200,6 +221,80 @@ router.post('/embed-new-words', async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Server error', details: err.message });
+  }
+});
+
+router.get('/query-by-id', async (req, res) => {
+  try {
+    const { id } = req.query;
+    if (!id) {
+      return res.status(400).json({ error: 'Must provide word id parameter' });
+    }
+
+    // Validate that id is a number
+    if (isNaN(id)) {
+      return res.status(400).json({ error: 'Invalid word ID' });
+    }
+
+    // Query Pinecone using word_id format
+    const index = pc.index('tutorial');
+    const queryResponse = await index.namespace('llm').query({
+      id: `word_${id}`,
+      topK: 10,
+      includeMetadata: true
+    });
+
+    // Format response and parse text into word and explanation
+    const results = queryResponse.matches.map(match => {
+      const [word, explain] = match.metadata.text.split(': ');
+      return {
+        id: parseInt(match.id.replace('word_', '')),
+        score: match.score,
+        word,
+        explain,
+        source: match.metadata.source
+      };
+    });
+
+    res.json(results);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error', details: err.message });
+  }
+});
+
+router.get('/query-by-word', async (req, res) => {
+
+  try {
+    const { word } = req.query;
+    if (!word) {
+      return res.status(400).json({ error: 'Must provide word parameter' });
+    }
+
+    // Query Pinecone using the word text
+    const index = pc.index('tutorial');
+    const queryResponse = await index.namespace('llm').query({
+      vector: await getEmbedding(word),
+      topK: 10,
+      includeMetadata: true
+    });
+
+    // Format response and parse text into word and explanation 
+    const results = queryResponse.matches.map(match => {
+      const [word, explain] = match.metadata.text.split(': ');
+      return {
+        id: parseInt(match.id.replace('word_', '')),
+        score: match.score,
+        word,
+        explain,
+        source: match.metadata.source
+      };
+    });
+
+    res.json(results);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error', details: err.message });
   }
 });
 
