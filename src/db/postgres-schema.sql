@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS explain_history (
 CREATE TABLE IF NOT EXISTS related_words (
   word_id INTEGER REFERENCES words(id) ON DELETE CASCADE,
   related_word_id INTEGER REFERENCES words(id) ON DELETE CASCADE,
+  related_word VARCHAR(80) NOT NULL,
   correlation FLOAT CHECK (correlation >= 0 AND correlation <= 1),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (word_id, related_word_id)

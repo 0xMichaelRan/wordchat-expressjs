@@ -106,36 +106,73 @@ router.post('/embed-new-words', async (req, res) => {
 router.get('/query-by-id', async (req, res) => {
   try {
     const { id } = req.query;
-    if (!id) {
-      return res.status(400).json({ error: 'Must provide word id parameter' });
+    if (!id || isNaN(id)) {
+      return res.status(400).json({ error: 'Must provide valid word id parameter' });
     }
 
-    // Validate that id is a number
-    if (isNaN(id)) {
-      return res.status(400).json({ error: 'Invalid word ID' });
+    // Query from single table without join
+    const relatedResult = await db.query(`
+      SELECT related_word_id, correlation, related_word
+      FROM related_words
+      WHERE word_id = $1
+      ORDER BY correlation DESC
+      LIMIT 10
+    `, [id]);
+
+    // If we found results in PostgreSQL, return them
+    if (relatedResult.rows.length > 0) {
+      console.log(`Found ${relatedResult.rows.length} related words in PostgreSQL`);
+      return res.json(relatedResult.rows.map(row => ({
+        id: row.related_word_id,
+        score: row.correlation,
+        word: row.related_word,
+        source: 'postgres'
+      })));
     }
 
-    // Query Pinecone using word_id format
-    const index = pc.index('tutorial');
-    const queryResponse = await index.namespace('llm').query({
+    // If no PostgreSQL results, fall back to Pinecone
+    const index = pc.index(process.env.PINECONE_INDEX);
+    const queryResponse = await index.namespace(process.env.PINECONE_NAMESPACE).query({
       id: `word_${id}`,
       topK: 10,
       includeMetadata: true
     });
 
-    // Format response and parse text into word and explanation
-    const results = queryResponse.matches
+    // TODO: again if no result found in Pinecone, something is wrong
+    // Need to add embedding of this word to Pinecone index
+
+    // Format Pinecone response and save to PostgreSQL
+    const results = await Promise.all(queryResponse.matches
       .filter(match => match.id !== `word_${id}`)
-      .map(match => {
-        const [word, explain] = match.metadata.text.split(': ');
+      .map(async match => {
+        const [word] = match.metadata.text.split(': ');
+        const related_word_id = parseInt(match.id.replace('word_', ''));
+
+        // Insert into related_words
+        await db.query(`
+          INSERT INTO related_words
+            (word_id, related_word_id, related_word, correlation)
+          VALUES ($1, $2, $3, $4)
+          ON CONFLICT (word_id, related_word_id) 
+          DO UPDATE SET 
+            correlation = $4,
+            related_word = $3
+        `, [
+          id,
+          related_word_id,
+          word,
+          match.score
+        ]);
+
         return {
-          id: parseInt(match.id.replace('word_', '')),
+          id: related_word_id,
           score: match.score,
           word,
-          explain,
-          source: match.metadata.source
+          source: match.metadata.source || 'pinecone'
         };
-      });
+      }));
+
+    console.log(`Found ${results.length} related words in Pinecone`);
 
     res.json(results);
   } catch (err) {
@@ -163,12 +200,11 @@ router.get('/query-by-word', async (req, res) => {
     // Format response and parse text into word and explanation 
     const results = queryResponse.matches
       .map(match => {
-        const [word, explain] = match.metadata.text.split(': ');
+        const [word] = match.metadata.text.split(': ');
         return {
           id: parseInt(match.id.replace('word_', '')),
           score: match.score,
           word,
-          explain,
           source: match.metadata.source
         };
       });
