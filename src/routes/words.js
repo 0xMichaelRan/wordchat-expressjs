@@ -5,10 +5,10 @@ const db = require('../config/db');
 
 // Validation middleware
 const validateWord = [
-  body('word').isString().trim().notEmpty().isLength({ max: 100 }),
-  body('explain').isString().trim().notEmpty(),
+  body('word').isString().trim().notEmpty().isLength({ max: 80 }), // Updated max length to match schema
+  body('explain').isString().trim().notEmpty().isLength({ max: 188 }), // Updated max length to match schema
   body('details').optional().isString(),
-  body('ai_generated').isBoolean().notEmpty(),  // Changed from 'generated'
+  body('ai_generated').isBoolean().notEmpty(),
 ];
 
 // Get all words with sorting and limiting
@@ -65,9 +65,9 @@ router.get('/', [
         break;
     }
 
-    query += ' LIMIT ?';
-    const words = await db.all(query, [limit]);
-    res.json(words);
+    query += ' LIMIT $1';
+    const words = await db.query(query, [limit]);
+    res.json(words.rows);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
@@ -77,28 +77,27 @@ router.get('/', [
 // Get the most recently added word
 router.get('/most_recent', async (req, res) => {
   const limit = parseInt(req.query.limit) || 1;
-  const words = await db.all('SELECT * FROM words ORDER BY created_at DESC LIMIT ?', [limit]);
-  res.json(words);
+  const words = await db.query('SELECT * FROM words ORDER BY created_at DESC LIMIT $1', [limit]);
+  res.json(words.rows);
 });
 
 // Get a random word that has empty explain
 router.get('/random_empty_explain', async (req, res) => {
-  const word = await db.get('SELECT * FROM words WHERE explain IS \'\' ORDER BY RANDOM() LIMIT 1');
-  res.json(word);
+  const word = await db.query('SELECT * FROM words WHERE explain = \'\' ORDER BY RANDOM() LIMIT 1');
+  res.json(word.rows[0]);
 });
 
 // Get single word by ID
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const word = await db.get('SELECT * FROM words WHERE id = ?', [id]);
+    const word = await db.query('SELECT * FROM words WHERE id = $1', [id]);
 
-    if (!word) {
+    if (word.rows.length === 0) {
       return res.status(404).json({ error: 'Word not found' });
     }
 
-    // Return only the word details
-    res.json(word);
+    res.json(word.rows[0]);
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
@@ -107,13 +106,13 @@ router.get('/:id', async (req, res) => {
 // Get explain history
 router.get('/:id/history', async (req, res) => {
   const { id } = req.params;
-  const history = await db.all(
+  const history = await db.query(
     `SELECT * FROM explain_history 
-     WHERE word_id = ? AND old_explain != '' 
+     WHERE word_id = $1 AND old_explain != '' 
      ORDER BY changed_at DESC LIMIT 3`,
     [id]
   );
-  res.json(history);
+  res.json(history.rows);
 });
 
 // Add a word
@@ -124,16 +123,15 @@ router.post('/', validateWord, async (req, res) => {
   }
 
   try {
-    const { word, explain, details, ai_generated } = req.body;  // Changed from 'generated'
-    const result = await db.run(
-      'INSERT INTO words (word, explain, details, ai_generated, pinecone_status) VALUES (?, ?, ?, ?, -1)',
+    const { word, explain, details, ai_generated } = req.body;
+    const result = await db.query(
+      'INSERT INTO words (word, explain, details, ai_generated, pinecone_status) VALUES ($1, $2, $3, $4, -1) RETURNING *',
       [word, explain, details, ai_generated]
     );
 
-    const newWord = await db.get('SELECT * FROM words WHERE id = ?', [result.lastID]);
-    res.status(201).json(newWord);
+    res.status(201).json(result.rows[0]);
   } catch (err) {
-    if (err.message.includes('UNIQUE constraint failed')) {
+    if (err.message.includes('duplicate key value violates unique constraint')) {
       res.status(400).json({ error: 'Word already exists' });
     } else {
       res.status(500).json({ error: 'Server error' });
@@ -146,15 +144,15 @@ router.put('/:id', async (req, res) => {
   // Perform conditional validation
   const validationRules = [];
   if (req.body.word !== undefined) {
-    validationRules.push(body('word').isString().trim().notEmpty().isLength({ max: 100 }));
+    validationRules.push(body('word').isString().trim().notEmpty().isLength({ max: 80 }));
   }
   if (req.body.explain !== undefined) {
-    validationRules.push(body('explain').isString().trim().notEmpty());
+    validationRules.push(body('explain').isString().trim().notEmpty().isLength({ max: 188 }));
   }
   if (req.body.details !== undefined) {
     validationRules.push(body('details').optional().isString());
   }
-  if (req.body.ai_generated !== undefined) {  // Changed from 'generated'
+  if (req.body.ai_generated !== undefined) {
     validationRules.push(body('ai_generated').isBoolean());
   }
 
@@ -167,43 +165,43 @@ router.put('/:id', async (req, res) => {
 
   try {
     const { id } = req.params;
-    const { word, explain, details, ai_generated } = req.body;  // Changed from 'generated'
+    const { word, explain, details, ai_generated } = req.body;
 
     // Get current word data
-    const currentWord = await db.get('SELECT * FROM words WHERE id = ?', [id]);
-    if (!currentWord) {
+    const currentWord = await db.query('SELECT * FROM words WHERE id = $1', [id]);
+    if (currentWord.rows.length === 0) {
       return res.status(404).json({ error: 'Word not found' });
     }
 
     // Determine new values, falling back to current values if not provided
-    const newWord = word !== undefined ? word : currentWord.word;
-    const newExplain = explain !== undefined ? explain : currentWord.explain;
-    const newDetails = details !== undefined ? details : currentWord.details;
-    const newAiGenerated = ai_generated !== undefined ? ai_generated : currentWord.ai_generated;  // Changed from 'generated'
+    const newWord = word !== undefined ? word : currentWord.rows[0].word;
+    const newExplain = explain !== undefined ? explain : currentWord.rows[0].explain;
+    const newDetails = details !== undefined ? details : currentWord.rows[0].details;
+    const newAiGenerated = ai_generated !== undefined ? ai_generated : currentWord.rows[0].ai_generated;
 
     // Increment pinecone_status if explain changed
-    const newPineconeStatus = currentWord.explain !== newExplain 
-      ? Math.max(1, currentWord.pinecone_status + 1)
-      : currentWord.pinecone_status;
+    const newPineconeStatus = currentWord.rows[0].explain !== newExplain 
+      ? Math.max(1, currentWord.rows[0].pinecone_status + 1)
+      : currentWord.rows[0].pinecone_status;
 
     // Store old explain in history if it changed
-    if (currentWord.explain !== newExplain) {
-      await db.run(
-        'INSERT INTO explain_history (word_id, old_explain) VALUES (?, ?)',
-        [id, currentWord.explain]
+    if (currentWord.rows[0].explain !== newExplain) {
+      await db.query(
+        'INSERT INTO explain_history (word_id, old_explain) VALUES ($1, $2)',
+        [id, currentWord.rows[0].explain]
       );
     }
 
     // Update word
-    await db.run(
-      'UPDATE words SET word = ?, explain = ?, details = ?, ai_generated = ?, pinecone_status = ? WHERE id = ?',  // Changed from 'generated'
+    await db.query(
+      'UPDATE words SET word = $1, explain = $2, details = $3, ai_generated = $4, pinecone_status = $5 WHERE id = $6 RETURNING *',
       [newWord, newExplain, newDetails, newAiGenerated, newPineconeStatus, id]
     );
 
-    const updatedWord = await db.get('SELECT * FROM words WHERE id = ?', [id]);
-    res.json(updatedWord);
+    const updatedWord = await db.query('SELECT * FROM words WHERE id = $1', [id]);
+    res.json(updatedWord.rows[0]);
   } catch (err) {
-    if (err.message.includes('UNIQUE constraint failed')) {
+    if (err.message.includes('duplicate key value violates unique constraint')) {
       res.status(400).json({ error: 'Word already exists' });
     } else {
       res.status(500).json({ error: 'Server error' });
@@ -215,13 +213,13 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const word = await db.get('SELECT * FROM words WHERE id = ?', [id]);
+    const word = await db.query('SELECT * FROM words WHERE id = $1', [id]);
 
-    if (!word) {
+    if (word.rows.length === 0) {
       return res.status(404).json({ error: 'Word not found' });
     }
 
-    await db.run('DELETE FROM words WHERE id = ?', [id]);
+    await db.query('DELETE FROM words WHERE id = $1', [id]);
     res.json({ message: 'Word deleted successfully' });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
@@ -240,19 +238,14 @@ router.post('/:id/related/:relatedId',
       const { id, relatedId } = req.params;
       const { correlation } = req.body;
 
-      const result = await db.run(
-        'INSERT INTO related_words (word_id, related_word_id, correlation) VALUES (?, ?, ?)',
+      const result = await db.query(
+        'INSERT INTO related_words (word_id, related_word_id, correlation) VALUES ($1, $2, $3) RETURNING *',
         [id, relatedId, correlation]
       );
 
-      const relationship = await db.get(
-        'SELECT * FROM related_words WHERE word_id = ? AND related_word_id = ?',
-        [id, relatedId]
-      );
-
-      res.status(201).json(relationship);
+      res.status(201).json(result.rows[0]);
     } catch (err) {
-      if (err.message.includes('UNIQUE constraint failed')) {
+      if (err.message.includes('duplicate key value violates unique constraint')) {
         res.status(400).json({ error: 'Relationship already exists' });
       } else {
         res.status(500).json({ error: 'Server error' });
