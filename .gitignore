@@ -1,6 +1,4 @@
 dictionary.sqlite
-.env
-
 # Logs
 logs
 *.log

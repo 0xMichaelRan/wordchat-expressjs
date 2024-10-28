@@ -6,8 +6,8 @@ const pool = require('../config/db');
 async function setupDatabase() {
   try {
     // Read schema and seed files
-    const schemaSQL = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
-    const seedSQL = fs.readFileSync(path.join(__dirname, 'seed.sql'), 'utf8');
+    const schemaSQL = fs.readFileSync(path.join(__dirname, 'sqlite3-schema.sql'), 'utf8');
+    const seedSQL = fs.readFileSync(path.join(__dirname, 'sqlite3-seed.sql'), 'utf8');
 
     // Execute schema
     await pool.query(schemaSQL);

@@ -8,6 +8,7 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir);
 }
 
+// dictionary.sqlite (128KB as of Oct 2024) is in .gitignore
 const dbPath = path.join(dataDir, 'dictionary.sqlite');
 const db = new sqlite3.Database(dbPath);
 
