@@ -8,7 +8,7 @@ const pc = new Pinecone({
 });
 
 async function getEmbedding(text) {
-  const model = 'multilingual-e5-large';
+  const model = process.env.PINECONE_MODEL;
   const embedding = await pc.inference.embed(
     model,
     [text],
@@ -17,20 +17,25 @@ async function getEmbedding(text) {
   return embedding[0].values;
 }
 
-// This endpoint is meant to be deprecated in future
 // Because only new words with AI-generated explain will have pinecone_status = -1
 router.post('/embed-new-words', async (req, res) => {
   try {
-    // Find 5 random words that need embedding
-    // Note that I only update embedding for words that has been edited 3 or more times
+    const { limit } = req.body; // Assuming limit is passed in the request body
+
+    // Validate the limit parameter
+    if (!Number.isInteger(limit) || limit <= 0) {
+      return res.status(400).json({ error: 'Invalid limit parameter' });
+    }
+
+    // Find random words that need embedding
     const wordsResult = await db.query(`
       SELECT id, word, explain, ai_generated
       FROM words 
       WHERE explain != '' 
       AND (pinecone_status = -1 OR pinecone_status > 3)
       ORDER BY RANDOM() 
-      LIMIT 5
-    `);
+      LIMIT $1
+    `, [limit]);
 
     const words = wordsResult.rows;
 
@@ -60,7 +65,7 @@ router.post('/embed-new-words', async (req, res) => {
     }));
 
     // Upsert to Pinecone
-    const index = pc.index('tutorial');
+    const index = pc.index(process.env.PINECONE_INDEX);
     const vectorsWithSource = vectors.map((vector, i) => ({
       ...vector,
       metadata: {
@@ -68,7 +73,7 @@ router.post('/embed-new-words', async (req, res) => {
         source: words[i].ai_generated ? 'ai' : 'human'
       }
     }));
-    await index.namespace('llm').upsert(vectorsWithSource);
+    await index.namespace(process.env.PINECONE_NAMESPACE).upsert(vectorsWithSource);
 
     // Update pinecone_status in database
     const wordIds = words.map(w => w.id);

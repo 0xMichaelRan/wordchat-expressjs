@@ -14,7 +14,7 @@ const validateWord = [
 // Get all words with sorting and limiting
 router.get('/', [
   query('limit').optional().isInt({ min: 1, max: 20 }).toInt(),
-  query('sort').optional().isIn(['hottest', 'latest', 'popular', 'random']),
+  query('sort').optional().isIn(['most-edited', 'latest', 'random']),
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -27,38 +27,26 @@ router.get('/', [
 
     let query = `
       SELECT id, word, 
-      '0.' || substr('000' || abs((random() * 1000)::int) % 1000, -3, 3) AS size 
+      ROUND(CAST(0.5 + (RANDOM() * 0.5) AS numeric), 2) AS size 
       FROM words
     `;
 
     switch (sort) {
+      case 'most-edited':
+        query = `
+          SELECT id, word, size FROM (
+            SELECT DISTINCT ON (w.id) w.id, w.word, 
+            ROUND(CAST(0.5 + (RANDOM() * 0.5) AS numeric), 2) AS size,
+            dh.changed_at
+            FROM words w 
+            LEFT JOIN explain_history dh ON w.id = dh.word_id 
+            ORDER BY w.id, dh.changed_at DESC NULLS LAST
+          ) subquery
+          ORDER BY changed_at DESC NULLS LAST
+          `;
+        break;
       case 'latest':
-        query = `
-          SELECT id, word, 
-          '0.' || substr('000' || abs(random()) % 1000, -3, 3) AS size 
-          FROM words 
-          ORDER BY created_at DESC
-        `;
-        break;
-      case 'hottest':
-        query = `
-          SELECT DISTINCT w.id, w.word, 
-          '0.' || substr('000' || abs(random()) % 1000, -3, 3) AS size 
-          FROM words w 
-          LEFT JOIN explain_history dh ON w.id = dh.word_id 
-          ORDER BY dh.changed_at DESC NULLS LAST
-        `;
-        break;
-      case 'popular':
-        query = `
-          SELECT w.id, w.word, 
-          '0.' || substr('000' || abs(random()) % 1000, -3, 3) AS size, 
-          COUNT(rw.related_word_id) as popularity 
-          FROM words w 
-          LEFT JOIN related_words rw ON w.id = rw.word_id 
-          GROUP BY w.id 
-          ORDER BY popularity DESC
-        `;
+        query += ' ORDER BY created_at DESC';
         break;
       case 'random':
         query += ' ORDER BY RANDOM()';
@@ -180,7 +168,7 @@ router.put('/:id', async (req, res) => {
     const newAiGenerated = ai_generated !== undefined ? ai_generated : currentWord.rows[0].ai_generated;
 
     // Increment pinecone_status if explain changed
-    const newPineconeStatus = currentWord.rows[0].explain !== newExplain 
+    const newPineconeStatus = currentWord.rows[0].explain !== newExplain
       ? Math.max(1, currentWord.rows[0].pinecone_status + 1)
       : currentWord.rows[0].pinecone_status;
 
