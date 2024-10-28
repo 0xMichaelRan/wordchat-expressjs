@@ -23,7 +23,7 @@ router.post('/embed-new-words', async (req, res) => {
   try {
     // Find 5 random words that need embedding
     // Note that I only update embedding for words that has been edited 3 or more times
-    const words = await db.all(`
+    const wordsResult = await db.query(`
       SELECT id, word, explain, ai_generated
       FROM words 
       WHERE explain != '' 
@@ -31,6 +31,8 @@ router.post('/embed-new-words', async (req, res) => {
       ORDER BY RANDOM() 
       LIMIT 5
     `);
+
+    const words = wordsResult.rows;
 
     if (words.length === 0) {
       return res.json({ message: 'No words found requiring embedding' });
@@ -70,11 +72,11 @@ router.post('/embed-new-words', async (req, res) => {
 
     // Update pinecone_status in database
     const wordIds = words.map(w => w.id);
-    await db.run(`
+    await db.query(`
       UPDATE words 
       SET pinecone_status = 0 
-      WHERE id IN (${wordIds.join(',')})
-    `);
+      WHERE id = ANY($1::int[])
+    `, [wordIds]);
 
     return res.json({
       words: data,
@@ -171,16 +173,16 @@ router.get('/:word_id', async (req, res) => {
     }
 
     // Query to get related words along with their word names
-    const related = await db.all(
+    const relatedResult = await db.query(
       `SELECT rw.related_word_id, rw.correlation, w.word AS related_word
        FROM related_words rw
        JOIN words w ON rw.related_word_id = w.id
-       WHERE rw.word_id = ?
+       WHERE rw.word_id = $1
        ORDER BY rw.correlation DESC`,
       [word_id]
     );
 
-    res.json(related);
+    res.json(relatedResult.rows);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });

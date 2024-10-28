@@ -27,7 +27,7 @@ router.get('/', [
 
     let query = `
       SELECT id, word, 
-      '0.' || substr('000' || abs(random()) % 1000, -3, 3) AS size 
+      '0.' || substr('000' || abs((random() * 1000)::int) % 1000, -3, 3) AS size 
       FROM words
     `;
 
