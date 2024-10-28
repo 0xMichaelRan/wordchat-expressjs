@@ -1,98 +1,58 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const { Pool } = require('pg');
 const fs = require('fs');
+const path = require('path');
+require('dotenv').config();
 
-// Ensure data directory exists
-const dataDir = path.join(__dirname, '..', '..', 'data');
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir);
-}
+// Load the PostgreSQL schema and seed files
+const schemaPath = path.join(__dirname, '..', 'db', 'postgres-schema.sql');
+const seedPath = path.join(__dirname, '..', 'db', 'postgres-seed.sql');
+const initSchema = fs.readFileSync(schemaPath, 'utf8');
+const seedData = fs.readFileSync(seedPath, 'utf8');
 
-// dictionary.sqlite (128KB as of Oct 2024) is in .gitignore
-const dbPath = path.join(dataDir, 'dictionary.sqlite');
-const db = new sqlite3.Database(dbPath);
+// Create a new PostgreSQL pool using environment variables
+const pool = new Pool({
+  user: process.env.PG_USER,
+  password: process.env.PG_PASSWORD,
+  host: process.env.PG_HOST,
+  database: process.env.PG_DATABASE,
+  port: process.env.PG_PORT,
+});
 
 // Promisify database operations
 const dbAsync = {
-  run: (sql, params = []) => {
-    return new Promise((resolve, reject) => {
-      db.run(sql, params, function(err) {
-        if (err) reject(err);
-        else resolve({ lastID: this.lastID, changes: this.changes });
-      });
-    });
-  },
-  get: (sql, params = []) => {
-    return new Promise((resolve, reject) => {
-      db.get(sql, params, (err, result) => {
-        if (err) reject(err);
-        else resolve(result);
-      });
-    });
-  },
-  all: (sql, params = []) => {
-    return new Promise((resolve, reject) => {
-      db.all(sql, params, (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
-    });
-  },
-  exec: (sql) => {
-    return new Promise((resolve, reject) => {
-      db.exec(sql, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
+  query: (text, params) => {
+    return pool.query(text, params);
   }
 };
 
-// Initialize database schema
-const initSchema = `
-CREATE TABLE IF NOT EXISTS words (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  word TEXT UNIQUE NOT NULL,
-  explain TEXT NOT NULL,
-  details TEXT,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS explain_history (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  word_id INTEGER,
-  previous_explain TEXT NOT NULL,
-  changed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (word_id) REFERENCES words(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS related_words (
-  word_id INTEGER,
-  related_word_id INTEGER,
-  correlation REAL CHECK (correlation >= 0 AND correlation <= 1),
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (word_id, related_word_id),
-  FOREIGN KEY (word_id) REFERENCES words(id) ON DELETE CASCADE,
-  FOREIGN KEY (related_word_id) REFERENCES words(id) ON DELETE CASCADE
-);
-
--- Insert sample data if the words table is empty
-INSERT OR IGNORE INTO words (word, explain, details) VALUES
-  ('ephemeral', 'Lasting for a very short time', 'From Greek "ephemeros" meaning lasting only one day'),
-  ('serendipity', 'The occurrence of finding pleasant things by chance', 'Coined by Horace Walpole in 1754'),
-  ('ubiquitous', 'Present, appearing, or found everywhere', 'From Latin "ubique" meaning everywhere'),
-  ('eloquent', 'Fluent or persuasive in speaking or writing', 'From Latin "eloqui" meaning to speak out'),
-  ('resilient', 'Able to recover quickly from difficulties', 'From Latin "resilire" meaning to spring back');
-`;
-
-// Initialize the database
-db.serialize(async () => {
+// Function to check if the database is initialized
+async function isDatabaseInitialized() {
   try {
-    await dbAsync.exec(initSchema);
-    console.log('Database initialized successfully');
+    const result = await dbAsync.query("SELECT to_regclass('public.words') AS table_exists;");
+    return result.rows[0].table_exists !== null;
+  } catch (err) {
+    console.error('Error checking database initialization:', err);
+    return false;
+  }
+}
+
+// Initialize the database if not already initialized
+(async () => {
+  try {
+    const initialized = await isDatabaseInitialized();
+    if (!initialized) {
+      await dbAsync.query(initSchema);
+      console.log('Database initialized successfully');
+
+      // Run seed data
+      await dbAsync.query(seedData);
+      console.log('Database seeded successfully');
+    } else {
+      console.log('Database is already initialized');
+    }
   } catch (err) {
     console.error('Error initializing database:', err);
   }
-});
+})();
 
 module.exports = dbAsync;
