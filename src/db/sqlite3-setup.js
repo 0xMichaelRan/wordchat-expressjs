@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const pool = require('../config/db');
 
+// this is for sqlite3, not used any more.
 async function setupDatabase() {
   try {
     // Read schema and seed files
