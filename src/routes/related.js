@@ -8,9 +8,8 @@ const pc = new Pinecone({
 });
 
 async function getEmbedding(text) {
-  const model = process.env.PINECONE_MODEL;
   const embedding = await pc.inference.embed(
-    model,
+    process.env.PINECONE_MODEL,
     [text],
     { inputType: 'query' }
   );
@@ -50,9 +49,8 @@ router.post('/embed-new-words', async (req, res) => {
     }));
 
     // Calculate embeddings
-    const model = 'multilingual-e5-large';
     const embeddings = await pc.inference.embed(
-      model,
+      process.env.PINECONE_MODEL,
       data.map(d => d.text),
       { inputType: 'passage', truncate: 'END' }
     );
@@ -83,7 +81,18 @@ router.post('/embed-new-words', async (req, res) => {
       WHERE id = ANY($1::int[])
     `, [wordIds]);
 
+    // Get count of remaining words needing embedding
+    const remainingResult = await db.query(`
+      SELECT COUNT(*) 
+      FROM words 
+      WHERE explain != '' 
+      AND (pinecone_status = -1 OR pinecone_status > 3)
+    `);
+    const remainingCount = parseInt(remainingResult.rows[0].count);
+
     return res.json({
+      count: wordIds.length,
+      remainingCount: remainingCount,
       words: data,
       embeddings: embeddings
     });
