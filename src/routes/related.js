@@ -124,16 +124,18 @@ router.get('/query-by-id', async (req, res) => {
     });
 
     // Format response and parse text into word and explanation
-    const results = queryResponse.matches.map(match => {
-      const [word, explain] = match.metadata.text.split(': ');
-      return {
-        id: parseInt(match.id.replace('word_', '')),
-        score: match.score,
-        word,
-        explain,
-        source: match.metadata.source
-      };
-    });
+    const results = queryResponse.matches
+      .filter(match => match.id !== `word_${id}`)
+      .map(match => {
+        const [word, explain] = match.metadata.text.split(': ');
+        return {
+          id: parseInt(match.id.replace('word_', '')),
+          score: match.score,
+          word,
+          explain,
+          source: match.metadata.source
+        };
+      });
 
     res.json(results);
   } catch (err) {
@@ -159,16 +161,17 @@ router.get('/query-by-word', async (req, res) => {
     });
 
     // Format response and parse text into word and explanation 
-    const results = queryResponse.matches.map(match => {
-      const [word, explain] = match.metadata.text.split(': ');
-      return {
-        id: parseInt(match.id.replace('word_', '')),
-        score: match.score,
-        word,
-        explain,
-        source: match.metadata.source
-      };
-    });
+    const results = queryResponse.matches
+      .map(match => {
+        const [word, explain] = match.metadata.text.split(': ');
+        return {
+          id: parseInt(match.id.replace('word_', '')),
+          score: match.score,
+          word,
+          explain,
+          source: match.metadata.source
+        };
+      });
 
     res.json(results);
   } catch (err) {
