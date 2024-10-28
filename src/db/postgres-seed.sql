@@ -96,7 +96,7 @@ INSERT INTO words (word, explain, ai_generated, pinecone_status) VALUES
 ('Language Model Interpretability', 'The ability to understand and explain the decisions made by a language model.', TRUE, -1),
 ('Ethical Considerations in NLP', 'The study of ethical issues related to the development and deployment of NLP systems.', TRUE, -1),
 ('Bias Mitigation in Language Models', 'Techniques used to reduce bias in language models.', TRUE, -1),
-('Fairness in NLP', 'The study of ensuring that NLP systems treat all users and data fairly.', TRUE, -1);
+('Fairness in NLP', 'The study of ensuring that NLP systems treat all users and data fairly.', TRUE, -1)
 ON CONFLICT(word) DO NOTHING;
 
 SELECT * FROM words;

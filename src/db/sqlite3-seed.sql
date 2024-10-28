@@ -99,7 +99,7 @@ INSERT INTO words (word, explain, ai_generated, pinecone_status) VALUES
 ('Fairness in NLP', 'The study of ensuring that NLP systems treat all users and data fairly.', true, -1);
 
 -- Insert dummy data into explain_history
-INSERT INTO explain_history (word_id, previous_explain, changed_at) VALUES
+INSERT INTO explain_history (word_id, old_explain, changed_at) VALUES
 (1, 'Initial explanation for word 1', '2023-10-01 10:00:00'),
 (1, 'Initial explanation for word 2', '2023-10-02 11:00:00'),
 (1, 'Initial explanation for word 3', '2023-10-03 12:00:00'),

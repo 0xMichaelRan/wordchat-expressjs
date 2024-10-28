@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS words (
 CREATE TABLE IF NOT EXISTS explain_history (
   id SERIAL PRIMARY KEY,
   word_id INTEGER REFERENCES words(id) ON DELETE CASCADE,
-  previous_explain TEXT NOT NULL,
+  old_explain TEXT NOT NULL,
   changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

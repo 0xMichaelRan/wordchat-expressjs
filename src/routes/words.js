@@ -109,7 +109,7 @@ router.get('/:id/history', async (req, res) => {
   const { id } = req.params;
   const history = await db.all(
     `SELECT * FROM explain_history 
-     WHERE word_id = ? AND previous_explain != '' 
+     WHERE word_id = ? AND old_explain != '' 
      ORDER BY changed_at DESC LIMIT 3`,
     [id]
   );
@@ -189,7 +189,7 @@ router.put('/:id', async (req, res) => {
     // Store old explain in history if it changed
     if (currentWord.explain !== newExplain) {
       await db.run(
-        'INSERT INTO explain_history (word_id, previous_explain) VALUES (?, ?)',
+        'INSERT INTO explain_history (word_id, old_explain) VALUES (?, ?)',
         [id, currentWord.explain]
       );
     }
