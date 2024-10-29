@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS words (
   details TEXT,
   pinecone_status INTEGER NOT NULL, -- -1: no embedding, 0: just embedded, >0: outdated after edits
   ai_generated BOOLEAN NOT NULL, -- TRUE if AI generated, FALSE if human input
+  base VARCHAR(50) NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -26,6 +27,8 @@ CREATE TABLE IF NOT EXISTS related_words (
   related_word_id INTEGER REFERENCES words(id) ON DELETE CASCADE,
   related_word VARCHAR(80) NOT NULL,
   correlation FLOAT CHECK (correlation >= 0 AND correlation <= 1),
+  ai_generated BOOLEAN NOT NULL,
+  base VARCHAR(50) NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (word_id, related_word_id)
 );

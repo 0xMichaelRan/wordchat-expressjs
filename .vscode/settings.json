@@ -5,6 +5,16 @@
             "driver": "SQLite",
             "name": "local-sqlite3",
             "database": "${workspaceFolder:express-wordchat}/data/dictionary.sqlite"
+        },
+        {
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 5432,
+            "driver": "PostgreSQL",
+            "name": "psql",
+            "database": "postgres",
+            "username": "postgres",
+            "password": "secret"
         }
     ]
 }
