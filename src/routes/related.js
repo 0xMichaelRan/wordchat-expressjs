@@ -152,8 +152,10 @@ router.get('/query-by-id', async (req, res) => {
       .map(async match => {
         const [word] = match.metadata.text.split(': ');
         const related_word_id = parseInt(match.id.replace('word_', ''));
+        const ai_generated = match.metadata.ai_generated === 'true';
         const knowledge_base = match.metadata.knowledge_base;
-        const ai_generated = match.metadata.ai_generated;
+
+        console.log('ai_generated', ai_generated, 'knowledge_base', knowledge_base, 'for', word);
 
         // Insert into or update related_words
         await db.query(`
