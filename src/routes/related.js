@@ -152,38 +152,38 @@ router.get('/query-by-id', async (req, res) => {
         const [word] = match.metadata.text.split(': ');
         const related_word_id = parseInt(match.id.replace('word_', ''));
         const base = match.metadata.base || 'unknown';
-        const source = match.metadata.source || 'unknown';
+        const ai_generated = match.metadata.source === 'ai';
 
         // Insert into or update related_words
         await db.query(`
           INSERT INTO related_words
-            (word_id, related_word_id, related_word, correlation, source, base)
+            (word_id, related_word_id, related_word, correlation, ai_generated, base)
           VALUES ($1, $2, $3, $4, $5, $6)
           ON CONFLICT (word_id, related_word_id) 
           DO UPDATE SET 
-            correlation = $4,
             related_word = $3,
-            source = $5,
+            correlation = $4,
+            ai_generated = $5,
             base = $6
         `, [
           id,
           related_word_id,
           word,
           match.score,
-          base,
-          source
+          ai_generated,
+          base
         ]);
 
         return {
           id: related_word_id,
           word,
           score: match.score,
-          source,
+          ai_generated,
           base
         };
       }));
 
-    console.log(`Found ${results.length} related words in Pinecone`);
+    console.log("/query-by-id" + `Found ${results.length} related words in Pinecone`);
 
     res.json(results);
   } catch (err) {
@@ -221,12 +221,41 @@ router.get('/query-by-word', async (req, res) => {
         };
       });
 
+    console.log("/query-by-word" + `Found ${results.length} related words in Pinecone`);
+
     res.json(results);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error', details: err.message });
   }
 });
+
+router.get('/:word_id', async (req, res) => {
+  try {
+    const { word_id } = req.params;
+
+    // Validate that word_id is a number
+    if (isNaN(word_id)) {
+      return res.status(400).json({ error: 'Invalid word ID' });
+    }
+
+    // Query to get related words along with their word names
+    const relatedResult = await db.query(
+      `SELECT rw.related_word_id, rw.correlation, w.word AS related_word
+       FROM related_words rw
+       JOIN words w ON rw.related_word_id = w.id
+       WHERE rw.word_id = $1
+       ORDER BY rw.correlation DESC`,
+      [word_id]
+    );
+
+    res.json(relatedResult.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 
 module.exports = router;
  
