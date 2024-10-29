@@ -28,7 +28,7 @@ router.post('/embed-new-words', async (req, res) => {
 
     // Find random words that need embedding
     const wordsResult = await db.query(`
-      SELECT id, word, explain, ai_generated, base
+      SELECT id, word, explain, ai_generated, knowledge_base  
       FROM words 
       WHERE explain != '' 
       AND (pinecone_status = -1 OR pinecone_status > 3)
@@ -44,9 +44,10 @@ router.post('/embed-new-words', async (req, res) => {
 
     // Prepare data for embedding
     const data = words.map(w => ({
-      id: `word_${w.id}`,
+      id: `word_0${w.id}`,
       text: `${w.word}: ${w.explain}`,
-      base: w.base
+      ai_generated: w.ai_generated,
+      knowledge_base: w.knowledge_base,
     }));
 
     // Calculate embeddings
@@ -62,8 +63,8 @@ router.post('/embed-new-words', async (req, res) => {
       values: embeddings[i].values,
       metadata: {
         text: d.text,
-        base: d.base,
-        source: d.ai_generated ? 'ai' : 'human'
+        ai_generated: d.ai_generated,
+        knowledge_base: d.knowledge_base,
       }
     }));
 
@@ -137,7 +138,7 @@ router.get('/query-by-id', async (req, res) => {
     // If no PostgreSQL results, fall back to Pinecone
     const index = pc.index(process.env.PINECONE_INDEX);
     const queryResponse = await index.namespace(process.env.PINECONE_NAMESPACE).query({
-      id: `word_${id}`,
+      id: `word_0${id}`,
       topK: 10,
       includeMetadata: true
     });
@@ -147,31 +148,31 @@ router.get('/query-by-id', async (req, res) => {
 
     // Format Pinecone response and save to PostgreSQL
     const results = await Promise.all(queryResponse.matches
-      .filter(match => match.id !== `word_${id}`)
+      .filter(match => match.id !== `word_0${id}`)
       .map(async match => {
         const [word] = match.metadata.text.split(': ');
         const related_word_id = parseInt(match.id.replace('word_', ''));
-        const base = match.metadata.base || 'unknown';
-        const ai_generated = match.metadata.source === 'ai';
+        const knowledge_base = match.metadata.knowledge_base;
+        const ai_generated = match.metadata.ai_generated;
 
         // Insert into or update related_words
         await db.query(`
           INSERT INTO related_words
-            (word_id, related_word_id, related_word, correlation, ai_generated, base)
+            (word_id, related_word_id, related_word, correlation, ai_generated, knowledge_base)
           VALUES ($1, $2, $3, $4, $5, $6)
           ON CONFLICT (word_id, related_word_id) 
           DO UPDATE SET 
             related_word = $3,
             correlation = $4,
             ai_generated = $5,
-            base = $6
+            knowledge_base = $6
         `, [
           id,
           related_word_id,
           word,
           match.score,
           ai_generated,
-          base
+          knowledge_base
         ]);
 
         return {
@@ -179,7 +180,7 @@ router.get('/query-by-id', async (req, res) => {
           word,
           score: match.score,
           ai_generated,
-          base
+          knowledge_base
         };
       }));
 
@@ -216,8 +217,8 @@ router.get('/query-by-word', async (req, res) => {
           id: parseInt(match.id.replace('word_', '')),
           word,
           score: match.score,
-          base: match.metadata.base || 'unknown',
-          source: match.metadata.source || 'unknown'
+          ai_generated: match.metadata.ai_generated,
+          knowledge_base: match.metadata.knowledge_base,
         };
       });
 
@@ -255,7 +256,6 @@ router.get('/:word_id', async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
-
 
 module.exports = router;
  
