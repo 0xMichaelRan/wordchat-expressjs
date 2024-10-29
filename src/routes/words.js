@@ -9,7 +9,7 @@ const validateWord = [
   body('explain').isString().trim().notEmpty().isLength({ max: 188 }),
   body('details').optional().isString(),
   body('ai_generated').isBoolean().notEmpty(),
-  body('base').isString().trim().notEmpty().isLength({ max: 50 }),
+  body('knowledge_base').isString().trim().notEmpty().isLength({ max: 50 }),
 ];
 
 // Get all words with sorting and limiting
@@ -27,7 +27,7 @@ router.get('/', [
     const sort = req.query.sort || 'latest';
 
     let queryText = `
-      SELECT id, word, base, 
+      SELECT id, word, knowledge_base, 
       '0.' || LPAD(FLOOR(random() * 1000)::int::text, 3, '0') AS size 
       FROM words
     `;
@@ -35,7 +35,7 @@ router.get('/', [
     switch (sort) {
       case 'latest':
         queryText = `
-          SELECT id, word, base, 
+          SELECT id, word, knowledge_base, 
           '0.' || LPAD(FLOOR(random() * 1000)::int::text, 3, '0') AS size 
           FROM words 
           ORDER BY created_at DESC
@@ -43,7 +43,7 @@ router.get('/', [
         break;
       case 'most-edited':
         queryText = `
-          SELECT DISTINCT w.id, w.word, w.base, 
+          SELECT DISTINCT w.id, w.word, w.knowledge_base, 
           '0.' || LPAD(FLOOR(random() * 1000)::int::text, 3, '0') AS size,
           dh.changed_at  -- Include this column in the SELECT list
           FROM words w 
@@ -131,10 +131,10 @@ router.post('/', validateWord, async (req, res) => {
   }
 
   try {
-    const { word, explain, details, ai_generated, base } = req.body;
+    const { word, explain, details, ai_generated, knowledge_base } = req.body;
     const result = await db.query(
-      'INSERT INTO words (word, explain, details, ai_generated, pinecone_status, base) VALUES ($1, $2, $3, $4, -1, $5) RETURNING id',
-      [word, explain, details, ai_generated, base]
+      'INSERT INTO words (word, explain, details, ai_generated, pinecone_status, knowledge_base) VALUES ($1, $2, $3, $4, -1, $5) RETURNING id',
+      [word, explain, details, ai_generated, knowledge_base]
     );
 
     const newWord = await db.query('SELECT * FROM words WHERE id = $1', [result.rows[0].id]);
@@ -163,8 +163,8 @@ router.put('/:id', async (req, res) => {
   if (req.body.ai_generated !== undefined) {
     validationRules.push(body('ai_generated').isBoolean());
   }
-  if (req.body.base !== undefined) {
-    validationRules.push(body('base').isString().trim().notEmpty().isLength({ max: 50 }));
+  if (req.body.knowledge_base !== undefined) {
+    validationRules.push(body('knowledge_base').isString().trim().notEmpty().isLength({ max: 50 }));
   }
 
   await Promise.all(validationRules.map(validation => validation.run(req)));
@@ -176,7 +176,7 @@ router.put('/:id', async (req, res) => {
 
   try {
     const { id } = req.params;
-    const { word, explain, details, ai_generated, base } = req.body;
+    const { word, explain, details, ai_generated, knowledge_base } = req.body;
 
     const { rows } = await db.query('SELECT * FROM words WHERE id = $1', [id]);
     if (rows.length === 0) {
@@ -188,7 +188,7 @@ router.put('/:id', async (req, res) => {
     const newExplain = explain !== undefined ? explain : currentWord.explain;
     const newDetails = details !== undefined ? details : currentWord.details;
     const newAiGenerated = ai_generated !== undefined ? ai_generated : currentWord.ai_generated;
-    const newBase = base !== undefined ? base : currentWord.base;
+    const newKnowledgeBase = knowledge_base !== undefined ? knowledge_base : currentWord.knowledge_base;
 
     const newPineconeStatus = currentWord.explain !== newExplain 
       ? Math.max(1, currentWord.pinecone_status + 1)
@@ -202,8 +202,8 @@ router.put('/:id', async (req, res) => {
     }
 
     await db.query(
-      'UPDATE words SET word = $1, explain = $2, details = $3, ai_generated = $4, pinecone_status = $5, base = $6 WHERE id = $7',
-      [newWord, newExplain, newDetails, newAiGenerated, newPineconeStatus, newBase, id]
+      'UPDATE words SET word = $1, explain = $2, details = $3, ai_generated = $4, pinecone_status = $5, knowledge_base = $6 WHERE id = $7',
+      [newWord, newExplain, newDetails, newAiGenerated, newPineconeStatus, newKnowledgeBase, id]
     );
 
     const updatedWord = await db.query('SELECT * FROM words WHERE id = $1', [id]);
