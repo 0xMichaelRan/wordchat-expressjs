@@ -110,11 +110,52 @@ router.post('/embed-new-words', async (req, res) => {
   }
 });
 
-router.get('/query-by-id', async (req, res) => {
+router.get('/query-by-word', async (req, res) => {
   try {
-    const { id, knowledge_base } = req.query;
-    if (!id || isNaN(id)) {
-      return res.status(400).json({ error: 'Must provide valid word id parameter' });
+    const { word } = req.query;
+    if (!word) {
+      return res.status(400).json({ error: 'Must provide word parameter' });
+    }
+
+    // Query Pinecone using the word text
+    const index = pc.index(process.env.PINECONE_INDEX);
+    const embedding = await getEmbedding(word);
+    const queryResponse = await index.namespace(knowledge_base).query({
+      vector: embedding,
+      topK: 10,
+      includeMetadata: true
+    });
+
+    // Format response and parse text into word and explanation 
+    const results = queryResponse.matches
+      .map(match => {
+        const [word] = match.metadata.text.split(': ');
+        return {
+          id: parseInt(match.id.replace('word_', '')),
+          word,
+          score: match.score,
+          ai_generated: match.metadata.ai_generated,
+          knowledge_base: match.metadata.knowledge_base,
+        };
+      });
+
+    console.log("/query-by-word" + `Found ${results.length} related words in Pinecone`);
+
+    res.json(results);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error', details: err.message });
+  }
+});
+
+router.get('/:word_id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.word_id);
+    const { knowledge_base } = req.query;
+
+    // Validate parameters
+    if (isNaN(id) || !knowledge_base) {
+      return res.status(400).json({ error: 'Invalid word ID or missing knowledge base' });
     }
 
     // Query from single table without join
@@ -158,8 +199,7 @@ router.get('/query-by-id', async (req, res) => {
         const related_word_id = parseInt(match.id.replace('word_', ''));
         const ai_generated = match.metadata.ai_generated === 'true';
         const knowledge_base = match.metadata.knowledge_base;
-
-        console.log('ai_generated', ai_generated, 'knowledge_base', knowledge_base, 'for', word);
+        console.log('Pinecone match:', word, 'ai_generated', ai_generated, 'knowledge_base', knowledge_base, 'with word_id', id);
 
         // Insert into or update related_words
         await db.query(`
@@ -197,70 +237,6 @@ router.get('/query-by-id', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error', details: err.message });
-  }
-});
-
-router.get('/query-by-word', async (req, res) => {
-  try {
-    const { word } = req.query;
-    if (!word) {
-      return res.status(400).json({ error: 'Must provide word parameter' });
-    }
-
-    // Query Pinecone using the word text
-    const index = pc.index(process.env.PINECONE_INDEX);
-    const embedding = await getEmbedding(word);
-    const queryResponse = await index.namespace(knowledge_base).query({
-      vector: embedding,
-      topK: 10,
-      includeMetadata: true
-    });
-
-    // Format response and parse text into word and explanation 
-    const results = queryResponse.matches
-      .map(match => {
-        const [word] = match.metadata.text.split(': ');
-        return {
-          id: parseInt(match.id.replace('word_', '')),
-          word,
-          score: match.score,
-          ai_generated: match.metadata.ai_generated,
-          knowledge_base: match.metadata.knowledge_base,
-        };
-      });
-
-    console.log("/query-by-word" + `Found ${results.length} related words in Pinecone`);
-
-    res.json(results);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error', details: err.message });
-  }
-});
-
-router.get('/:word_id', async (req, res) => {
-  try {
-    const { word_id } = req.params;
-
-    // Validate that word_id is a number
-    if (isNaN(word_id)) {
-      return res.status(400).json({ error: 'Invalid word ID' });
-    }
-
-    // Query to get related words along with their word names
-    const relatedResult = await db.query(
-      `SELECT rw.related_word_id, rw.correlation, w.word AS related_word
-       FROM related_words rw
-       JOIN words w ON rw.related_word_id = w.id
-       WHERE rw.word_id = $1
-       ORDER BY rw.correlation DESC`,
-      [word_id]
-    );
-
-    res.json(relatedResult.rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error' });
   }
 });
 
