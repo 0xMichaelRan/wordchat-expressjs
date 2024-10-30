@@ -47,6 +47,35 @@ router.post('/embed-one-word', async (req, res) => {
     if (vector) {
       const queryResponse = await pineconeService.queryById(word_id, knowledge_base);
       res.json(queryResponse);
+
+      // Save related words to PostgreSQL
+      await Promise.all(queryResponse.matches
+        .filter(match => match.id !== `word_0${word_id}`)
+        .map(async match => {
+          const [word] = match.metadata.text.split(': ');
+          const related_word_id = parseInt(match.id.replace('word_', ''));
+          const ai_generated = match.metadata.ai_generated === 'true';
+          const knowledge_base = match.metadata.knowledge_base;
+
+          await db.query(`
+            INSERT INTO related_words
+              (word_id, related_word_id, related_word, correlation, ai_generated, knowledge_base)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (word_id, related_word_id) 
+            DO UPDATE SET 
+              related_word = $3,
+              correlation = $4,
+              ai_generated = $5,
+              knowledge_base = $6
+          `, [
+            word_id,
+            related_word_id, 
+            word,
+            match.score,
+            ai_generated,
+            knowledge_base
+          ]);
+        }));
     } else {
       res.json({ 
         success: false,
