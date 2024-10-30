@@ -19,7 +19,7 @@ async function getEmbedding(text) {
 // Because only new words with AI-generated explain will have pinecone_status = -1
 router.post('/embed-new-words', async (req, res) => {
   try {
-    const { limit } = req.body; // Assuming limit is passed in the request body
+    const { knowledge_base, limit } = req.body; // Assuming limit is passed in the request body
 
     // Validate the limit parameter
     if (!Number.isInteger(limit) || limit <= 0) {
@@ -28,15 +28,16 @@ router.post('/embed-new-words', async (req, res) => {
 
     // Find random words that need embedding
     const wordsResult = await db.query(`
-      SELECT id, word, explain, ai_generated, knowledge_base  
+      SELECT id, word, explain, ai_generated  
       FROM words 
-      WHERE explain != '' 
+      WHERE explain != '' AND knowledge_base = $1
       AND (pinecone_status = -1 OR pinecone_status > 3)
       ORDER BY RANDOM() 
-      LIMIT $1
-    `, [limit]);
+      LIMIT $2
+    `, [knowledge_base, limit]);
 
     const words = wordsResult.rows;
+    console.log('words that need embedding', words);
 
     if (words.length === 0) {
       return res.json({ message: 'No words found requiring embedding' });
@@ -47,7 +48,7 @@ router.post('/embed-new-words', async (req, res) => {
       id: `word_0${w.id}`,
       text: `${w.word}: ${w.explain}`,
       ai_generated: w.ai_generated,
-      knowledge_base: w.knowledge_base,
+      knowledge_base: knowledge_base,
     }));
 
     // Calculate embeddings
@@ -64,7 +65,7 @@ router.post('/embed-new-words', async (req, res) => {
       metadata: {
         text: d.text,
         ai_generated: d.ai_generated,
-        knowledge_base: d.knowledge_base,
+        knowledge_base: knowledge_base,
       }
     }));
 
@@ -76,7 +77,7 @@ router.post('/embed-new-words', async (req, res) => {
         ...vector.metadata,
       }
     }));
-    await index.namespace(process.env.PINECONE_NAMESPACE).upsert(vectorsWithSource);
+    await index.namespace(knowledge_base).upsert(vectorsWithSource);
 
     // Update pinecone_status in database
     const wordIds = words.map(w => w.id);
@@ -90,16 +91,17 @@ router.post('/embed-new-words', async (req, res) => {
     const remainingResult = await db.query(`
       SELECT COUNT(*) 
       FROM words 
-      WHERE explain != '' 
+      WHERE explain != '' AND knowledge_base = $1
       AND (pinecone_status = -1 OR pinecone_status > 3)
-    `);
+    `, [knowledge_base]);
     const remainingCount = parseInt(remainingResult.rows[0].count);
 
     return res.json({
-      count: wordIds.length,
-      remainingCount: remainingCount,
+      embedding_added: wordIds.length,
+      remaining_to_embed: remainingCount,
       words: data,
-      embeddings: embeddings
+      embeddings: embeddings,
+      knowledge_base: knowledge_base
     });
 
   } catch (err) {
@@ -110,34 +112,36 @@ router.post('/embed-new-words', async (req, res) => {
 
 router.get('/query-by-id', async (req, res) => {
   try {
-    const { id } = req.query;
+    const { id, knowledge_base } = req.query;
     if (!id || isNaN(id)) {
       return res.status(400).json({ error: 'Must provide valid word id parameter' });
     }
 
     // Query from single table without join
     const relatedResult = await db.query(`
-      SELECT related_word_id, correlation, related_word
+      SELECT related_word_id, related_word, correlation, ai_generated, knowledge_base
       FROM related_words
-      WHERE word_id = $1
+      WHERE word_id = $1 AND knowledge_base = $2
       ORDER BY correlation DESC
       LIMIT 10
-    `, [id]);
+    `, [id, knowledge_base]);
 
     // If we found results in PostgreSQL, return them
     if (relatedResult.rows.length > 0) {
       console.log(`Found ${relatedResult.rows.length} related words in PostgreSQL`);
       return res.json(relatedResult.rows.map(row => ({
         id: row.related_word_id,
-        score: row.correlation,
         word: row.related_word,
-        source: 'postgres'
+        correlation: row.correlation,
+        ai_generated: row.ai_generated,
+        knowledge_base: row.knowledge_base
       })));
     }
+    console.log('Did not find related words in PostgreSQL in knowledge_base', knowledge_base, " for word_id", id);
 
     // If no PostgreSQL results, fall back to Pinecone
     const index = pc.index(process.env.PINECONE_INDEX);
-    const queryResponse = await index.namespace(process.env.PINECONE_NAMESPACE).query({
+    const queryResponse = await index.namespace(knowledge_base).query({
       id: `word_0${id}`,
       topK: 10,
       includeMetadata: true
@@ -186,7 +190,8 @@ router.get('/query-by-id', async (req, res) => {
         };
       }));
 
-    console.log("/query-by-id" + `Found ${results.length} related words in Pinecone`);
+    console.log('/query-by-id', `Found ${results.length} related words in Pinecone`);
+    console.log('knowledge_base', knowledge_base);
 
     res.json(results);
   } catch (err) {
@@ -205,7 +210,7 @@ router.get('/query-by-word', async (req, res) => {
     // Query Pinecone using the word text
     const index = pc.index(process.env.PINECONE_INDEX);
     const embedding = await getEmbedding(word);
-    const queryResponse = await index.namespace(process.env.PINECONE_NAMESPACE).query({
+    const queryResponse = await index.namespace(knowledge_base).query({
       vector: embedding,
       topK: 10,
       includeMetadata: true
@@ -260,4 +265,3 @@ router.get('/:word_id', async (req, res) => {
 });
 
 module.exports = router;
- 

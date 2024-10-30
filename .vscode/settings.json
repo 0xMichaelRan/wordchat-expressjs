@@ -11,7 +11,7 @@
             "server": "localhost",
             "port": 5432,
             "driver": "PostgreSQL",
-            "name": "psql",
+            "name": "local-postgres",
             "database": "postgres",
             "username": "postgres",
             "password": "secret"
