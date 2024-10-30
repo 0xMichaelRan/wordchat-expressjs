@@ -9,7 +9,7 @@ CREATE TABLE if not exists words (
   word VARCHAR(80) UNIQUE NOT NULL,
   explain VARCHAR(188) NOT NULL,
   details TEXT,
-  pinecone_status INTEGER NOT NULL, -- -1: no embedding, 0: just embedded, >0: outdated after edits
+  edit_since_embedding INTEGER NOT NULL, -- -1: no embedding, 0: just embedded, >0: outdated after edits
   ai_generated BOOLEAN NOT NULL, -- TRUE if AI generated, FALSE if human input
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

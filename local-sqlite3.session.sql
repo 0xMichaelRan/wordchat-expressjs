@@ -6,4 +6,4 @@ SELECT * FROM explain_history;
 
 SELECT * FROM related_words;
 
-SELECT count(*) FROM words WHERE explain != '' AND pinecone_status = -1;
+SELECT count(*) FROM words WHERE explain != '' AND edit_since_embedding = -1;

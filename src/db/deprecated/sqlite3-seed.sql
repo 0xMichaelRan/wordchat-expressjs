@@ -1,4 +1,4 @@
-INSERT INTO words (word, explain, ai_generated, pinecone_status) VALUES
+INSERT INTO words (word, explain, ai_generated, edit_since_embedding) VALUES
 ('Tokenization', 'The process of converting a sequence of characters into a sequence of tokens, which are meaningful units for processing by a language model.', true, -1),
 ('Embedding', 'A representation of words or phrases in a continuous vector space where semantically similar words are closer together.', true, -1),
 ('Attention Mechanism', 'A component of neural networks that allows the model to focus on specific parts of the input sequence when producing an output.', true, -1),

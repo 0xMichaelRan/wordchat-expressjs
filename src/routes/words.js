@@ -133,7 +133,7 @@ router.post('/', validateWord, async (req, res) => {
   try {
     const { word, explain, details, ai_generated, knowledge_base } = req.body;
     const result = await db.query(
-      'INSERT INTO words (word, explain, details, ai_generated, pinecone_status, knowledge_base) VALUES ($1, $2, $3, $4, -1, $5) RETURNING id',
+      'INSERT INTO words (word, explain, details, ai_generated, edit_since_embedding, knowledge_base) VALUES ($1, $2, $3, $4, -1, $5) RETURNING id',
       [word, explain, details, ai_generated, knowledge_base]
     );
 
@@ -150,7 +150,10 @@ router.post('/', validateWord, async (req, res) => {
 
 // Update word by ID
 router.put('/:id', async (req, res) => {
-  const validationRules = [];
+  const validationRules = [
+    body('knowledge_base').isString().trim().notEmpty().isLength({ max: 50 })
+  ];
+
   if (req.body.word !== undefined) {
     validationRules.push(body('word').isString().trim().notEmpty().isLength({ max: 80 }));
   }
@@ -173,11 +176,13 @@ router.put('/:id', async (req, res) => {
 
   try {
     const { id } = req.params;
-    const { word, explain, details, ai_generated } = req.body;
+    const { word, explain, details, ai_generated, knowledge_base } = req.body;
 
     const { rows } = await db.query('SELECT * FROM words WHERE id = $1', [id]);
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Word not found' });
+    } else if (knowledge_base !== rows[0].knowledge_base) {
+      return res.status(400).json({ error: 'Knowledge base cannot be changed' });
     }
 
     const currentWord = rows[0];
@@ -187,8 +192,8 @@ router.put('/:id', async (req, res) => {
     const newAiGenerated = ai_generated !== undefined ? ai_generated : currentWord.ai_generated;
 
     const newPineconeStatus = currentWord.explain !== newExplain 
-      ? Math.max(1, currentWord.pinecone_status + 1)
-      : currentWord.pinecone_status;
+      ? Math.max(1, currentWord.edit_since_embedding + 1)
+      : currentWord.edit_since_embedding;
 
     if (currentWord.explain !== newExplain) {
       await db.query(
@@ -198,8 +203,8 @@ router.put('/:id', async (req, res) => {
     }
 
     await db.query(
-      'UPDATE words SET word = $1, explain = $2, details = $3, ai_generated = $4, pinecone_status = $5 WHERE id = $6',
-      [newWord, newExplain, newDetails, newAiGenerated, newPineconeStatus, id]
+      'UPDATE words SET word = $1, explain = $2, details = $3, ai_generated = $4, edit_since_embedding = $5, knowledge_base = $6 WHERE id = $7',
+      [newWord, newExplain, newDetails, newAiGenerated, newPineconeStatus, knowledge_base, id]
     );
 
     const updatedWord = await db.query('SELECT * FROM words WHERE id = $1', [id]);

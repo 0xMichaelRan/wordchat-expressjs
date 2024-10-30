@@ -1,0 +1,2 @@
+ALTER TABLE words ADD COLUMN edit_since_embedding INTEGER NOT NULL DEFAULT 0;
+SELECT * FROM words;

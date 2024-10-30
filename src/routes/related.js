@@ -16,7 +16,7 @@ async function getEmbedding(text) {
   return embedding[0].values;
 }
 
-// Because only new words with AI-generated explain will have pinecone_status = -1
+// Because only new words with AI-generated explain will have edit_since_embedding = -1
 router.post('/embed-new-words', async (req, res) => {
   try {
     const { knowledge_base, limit } = req.body; // Assuming limit is passed in the request body
@@ -31,7 +31,7 @@ router.post('/embed-new-words', async (req, res) => {
       SELECT id, word, explain, ai_generated  
       FROM words 
       WHERE explain != '' AND knowledge_base = $1
-      AND (pinecone_status = -1 OR pinecone_status > 3)
+      AND (edit_since_embedding = -1 OR edit_since_embedding > 3)
       ORDER BY RANDOM() 
       LIMIT $2
     `, [knowledge_base, limit]);
@@ -79,11 +79,11 @@ router.post('/embed-new-words', async (req, res) => {
     }));
     await index.namespace(knowledge_base).upsert(vectorsWithSource);
 
-    // Update pinecone_status in database
+    // Update edit_since_embedding in database
     const wordIds = words.map(w => w.id);
     await db.query(`
       UPDATE words 
-      SET pinecone_status = 0 
+      SET edit_since_embedding = 0 
       WHERE id = ANY($1::int[])
     `, [wordIds]);
 
@@ -92,7 +92,7 @@ router.post('/embed-new-words', async (req, res) => {
       SELECT COUNT(*) 
       FROM words 
       WHERE explain != '' AND knowledge_base = $1
-      AND (pinecone_status = -1 OR pinecone_status > 3)
+      AND (edit_since_embedding = -1 OR edit_since_embedding > 3)
     `, [knowledge_base]);
     const remainingCount = parseInt(remainingResult.rows[0].count);
 
